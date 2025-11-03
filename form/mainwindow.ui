@@ -6,12 +6,12 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>733</width>
-    <height>571</height>
+    <width>657</width>
+    <height>560</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>boardt</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout">
@@ -21,7 +21,7 @@
        <number>0</number>
       </property>
       <property name="tabsClosable">
-       <bool>false</bool>
+       <bool>true</bool>
       </property>
       <widget class="QWidget" name="setupTab">
        <property name="enabled">
@@ -34,19 +34,6 @@
         <string>Setup</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_2">
-        <item row="3" column="7" alignment="Qt::AlignRight">
-         <widget class="QPushButton" name="pushButton_3">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="text">
-           <string>Connect</string>
-          </property>
-         </widget>
-        </item>
         <item row="0" column="6">
          <widget class="QLabel" name="label_2">
           <property name="sizePolicy">
@@ -59,19 +46,6 @@
            <string>Connection type: </string>
           </property>
          </widget>
-        </item>
-        <item row="3" column="2" colspan="5">
-         <spacer name="horizontalSpacer_2">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
         </item>
         <item row="0" column="7">
          <widget class="QComboBox" name="comboBox_2">
@@ -89,31 +63,31 @@
           </property>
          </widget>
         </item>
-        <item row="3" column="0">
-         <widget class="QPushButton" name="pushButton_2">
+        <item row="0" column="0">
+         <widget class="QLabel" name="label">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
           <property name="text">
-           <string/>
-          </property>
-          <property name="icon">
-           <iconset theme="QIcon::ThemeIcon::ViewRefresh"/>
+           <string>Board</string>
           </property>
          </widget>
         </item>
-        <item row="0" column="2">
-         <widget class="QComboBox" name="comboBox">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
+        <item row="4" column="2" colspan="5">
+         <spacer name="horizontalSpacer_2">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
           </property>
-         </widget>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
         </item>
         <item row="2" column="4" colspan="4">
          <widget class="QStackedWidget" name="stackedWidget">
@@ -175,16 +149,42 @@
           </widget>
          </widget>
         </item>
-        <item row="0" column="0">
-         <widget class="QLabel" name="label">
+        <item row="0" column="2">
+         <widget class="QComboBox" name="boardSelectComboBox">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+           <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="0">
+         <widget class="QPushButton" name="refreshSetupPushButton">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
           <property name="text">
-           <string>Board</string>
+           <string/>
+          </property>
+          <property name="icon">
+           <iconset theme="QIcon::ThemeIcon::ViewRefresh"/>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="7" alignment="Qt::AlignRight">
+         <widget class="QPushButton" name="connectBoardPushButton">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="text">
+           <string>Connect</string>
           </property>
          </widget>
         </item>
@@ -195,8 +195,8 @@
         <string>Log</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_4">
-        <item row="0" column="0" colspan="2">
-         <widget class="QPlainTextEdit" name="plainTextEdit"/>
+        <item row="0" column="0">
+         <widget class="QTextEdit" name="logTextEdit"/>
         </item>
        </layout>
       </widget>
@@ -209,7 +209,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>733</width>
+     <width>657</width>
      <height>22</height>
     </rect>
    </property>

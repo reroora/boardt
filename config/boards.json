@@ -1,0 +1,57 @@
+{
+    "Boards": [
+        {
+            "BoardName": "MAX77958",
+            "RegisterNameAddressPairs": [
+                    {"DEVICE_ID": "0x00"},
+                    {"DEVICE_REV": "0x01"},
+                    {"FW_REV": "0x02"},
+                    {"FW_SUB_VER": "0x03"},
+                    {"UIC_INT": "0x04"}
+            ],
+            "RegisterAccessType" : [
+                {"DEVICE_ID": "RO"},
+                {"DEVICE_REV": "RO"},
+                {"FW_REV": "RO"},
+                {"FW_SUB_VER": "RO"},
+                {"UIC_INT": [
+                        {"AttachedHoldI" : "RCA"},
+                        {"ChgTypI" : "RCA"},
+                        {"StopModeI" : "RCA"},
+                        {"DCDTmoI" : "RCA"},
+                        {"VbADCI" : "RCA"},
+                        {"VBUSDetI" : "RCA"},
+                        {"SYSMsgI" : "RCA"},
+                        {"APCmdResI" : "RCA"} ] }
+            ]
+        },
+
+        {
+            "BoardName": "MAXTEST",
+            "RegisterNameAddressPairs": [
+                    {"DEVICE_ID": "0x00"},
+                    {"DEVICE_REV": "0x01"},
+                    {"FW_REV": "0x02"},
+                    {"FW_SUB_VER": "0x03"},
+                    {"UIC_INT": "0x04"}
+            ],
+            "RegisterAccessType" : [
+                {"test": "RO"},
+                {"DEVICE_REV": "RO"},
+                {"FW_REV": "RO"},
+                {"FW_SUB_VER": "RO"},
+                {"UIC_INT": [
+                        {"AttachedHoldI" : "RCA"},
+                        {"ChgTypI" : "RCA"},
+                        {"StopModeI" : "RCA"},
+                        {"DCDTmoI" : "RCA"},
+                        {"VbADCI" : "RCA"},
+                        {"VBUSDetI" : "RCA"},
+                        {"SYSMsgI" : "RCA"},
+                        {"APCmdResI" : "RCA"} ] }
+            ]
+        }
+    ]
+}
+
+
