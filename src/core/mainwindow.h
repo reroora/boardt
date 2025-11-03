@@ -28,10 +28,12 @@ public slots:
     void updateBoardList(const QString configPath);
     void updateSetup();
 
-    void connectBoard();
-
 private slots:
     void closeTab(int index);
+
+    void connectBoard();
+
+    void sendDataSlot(QString tabName);
 
 private:
     Ui::MainWindow *ui;

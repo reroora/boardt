@@ -3,6 +3,7 @@
 
 #include <QDebug>
 #include <QComboBox>
+#include <QPushButton>
 
 #include "board_widget/boardwidget.h"
 #include "config_reader/configreader.h"
@@ -30,7 +31,7 @@ MainWindow::MainWindow(QWidget *parent)
         }
     }
 
-    // if I run tool from Qt Creator, current dir is .../boardt/build/mingw_qt_5_12_8-Debug
+    // if I run tool from Qt Creator, current dir is ..../boardt/build/mingw_qt_5_12_8-Debug
     m_configPath = ".\\debug\\boards.json";
     // m_configPath = "boards.json";
 \
@@ -92,24 +93,35 @@ void MainWindow::connectBoard()
 {
     QString boardName = ui->boardSelectComboBox->currentText();
 
+    // if exist tab maybe try to reconnect and etc
     if(m_Boards.contains(boardName)) {
         return;
     }
 
-    auto index = this->ui->tabWidget->addTab(new BoardWidget(), boardName);
+    BoardWidget* ptr = new BoardWidget();
+
+    auto index = this->ui->tabWidget->addTab(ptr, boardName);
+    ptr->setTabName(boardName);
 
     ConfigReaderJson reader;
     Board::RegisterMap registerMap = reader.getBoardRegisterMapbyName(m_configPath, boardName);
 
-    BoardWidget* ptr = qobject_cast<BoardWidget*>(ui->tabWidget->widget(index));
-    QPointer<QComboBox> comboBoxPtr = ptr->getComboBox();
+    // BoardWidget* ptr = qobject_cast<BoardWidget*>(ui->tabWidget->widget(index));
+    QPointer<QComboBox> comboBoxPtr = ptr->getRegisterComboBox();
     comboBoxPtr->addItems(registerMap.keys());
+
+    QObject::connect(ptr, &BoardWidget::sendDataSignal, this, &MainWindow::sendDataSlot);
 
     Board::BoardPointer boardPtr = new Board();
     boardPtr->setRegisterMap(registerMap);
     m_Boards[boardName] = boardPtr;
     auto name = ptr->objectName();
-    qDebug() << "Connected new board" << boardName;
+
+    qDebug() << "Connected new board:" << boardName;
+}
+
+void MainWindow::sendDataSlot(QString tabName) {
+    qDebug() << "sendDataSignal from " << tabName;
 }
 
 void MainWindow::closeTab(int index) {
