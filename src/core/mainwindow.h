@@ -7,6 +7,7 @@
 #include <QHash>
 #include <QString>
 #include "board_widget/boardwidget.h"
+#include <QSerialPort>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -33,14 +34,22 @@ private slots:
 
     void connectBoard();
 
-    void sendDataSlot(QString tabName);
+    void sendData(QString tabName);
+    void readData();
+    void handlePortError(QSerialPort::SerialPortError error);
 
 private:
+    bool connectToCommunicator(QString boardName);
+    void setupComSettings();
+    void updateComNames();
+
     Ui::MainWindow *ui;
 
     QString m_configPath; //TODO: maybe add getting path to config from argv
 
     QHash<QString, Board::BoardPointer> m_Boards;
+
+    QHash<QString, QPointer<QIODevice>> m_communicators;
 
     inline static QtMessageHandler m_originalMessageHandler = nullptr;
 };

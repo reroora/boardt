@@ -49,7 +49,7 @@ Board::RegisterMap ConfigReaderJson::getBoardRegisterMapbyName(QString configPat
         QJsonObject obj;
         for (int i = 0; i < boardsArray.size(); ++i) {
             obj = boardsArray[i].toObject();
-            if (obj.contains("BoardName") && obj["BoardName"].isObject()) {
+            if (obj.contains("BoardName") && (obj["BoardName"].toString() == boardName)) {
                 break;
             }
         }

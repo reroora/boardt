@@ -23,6 +23,10 @@ QPointer<QComboBox> BoardWidget::getRegisterComboBox() {
     return QPointer(ui->registerComboBox);
 }
 
+QPointer<QTextEdit> BoardWidget::getregisterDataTextEdit() {
+    return QPointer(ui->registerDataTextEdit);
+}
+
 QString BoardWidget::tabName() const
 {
     return m_tabName;

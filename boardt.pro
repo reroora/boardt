@@ -16,6 +16,7 @@ INSTALLS += \
 
 SOURCES += \
     src/board/board.cpp \
+    src/board_emulator/boardemulatorwidget.cpp \
     src/board_widget/boardwidget.cpp \
     src/config_reader/configreader.cpp \
     src/main.cpp \
@@ -24,6 +25,7 @@ SOURCES += \
 
 HEADERS += \
     src/board/board.h \
+    src/board_emulator/boardemulatorwidget.h \
     src/board_widget/boardwidget.h \
     src/config_reader/configreader.h \
     src/core/mainwindow.h \
@@ -31,6 +33,7 @@ HEADERS += \
 
 FORMS += \
     form/mainwindow.ui \
+    src/board_emulator/boardemulatorwidget.ui \
     src/board_widget/boardwidget.ui
 
 INCLUDEPATH += ./src

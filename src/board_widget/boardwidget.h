@@ -5,6 +5,7 @@
 #include <QComboBox>
 #include <QPointer>
 #include <QPushButton>
+#include <QTextEdit>
 
 namespace Ui {
 class BoardWidget;
@@ -21,6 +22,7 @@ public:
     ~BoardWidget();
 
     QPointer<QComboBox> getRegisterComboBox();
+    QPointer<QTextEdit> getregisterDataTextEdit();
 
     int getIndex() const;
     void setIndex(int newIndex);
