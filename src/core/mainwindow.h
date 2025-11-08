@@ -3,11 +3,14 @@
 
 #include <QMainWindow>
 #include <memory>
-#include "board/board.h"
 #include <QHash>
 #include <QString>
-#include "board_widget/boardwidget.h"
 #include <QSerialPort>
+#include <QVarLengthArray>
+
+#include "communication/command.h"
+#include "board_widget/boardwidget.h"
+#include "board/board.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -20,6 +23,7 @@ class MainWindow : public QMainWindow {
 
 public:
     MainWindow(QWidget *parent = nullptr);
+    MainWindow(QtMessageHandler originalMessageHandler, QWidget *parent = nullptr);
     ~MainWindow();
 
     static void mainWindowMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg);
@@ -34,7 +38,7 @@ private slots:
 
     void connectBoard();
 
-    void sendData(QString tabName);
+    void sendData(QString boardName);
     void readData();
     void handlePortError(QSerialPort::SerialPortError error);
 
@@ -43,13 +47,21 @@ private:
     void setupComSettings();
     void updateComNames();
 
+    void evaluateCommand(BRDAPV1::HandshakeVersionCommand& command, QString boardName);
+
     Ui::MainWindow *ui;
 
     QString m_configPath; //TODO: maybe add getting path to config from argv
 
     QHash<QString, Board::BoardPointer> m_Boards;
 
+    //TODO: add abstraction for communicator to provide incapsulation of codec and necessary objects (for example protocol version)
     QHash<QString, QPointer<QIODevice>> m_communicators;
+    // version that sets in beginning of communication
+    // if I had abstracted the communicator, this thing would have been hidden
+    QHash<QString, unsigned int> m_communicator_protocol_versions;
+
+    QVarLengthArray<int, 4> supportedBRDAPVersions;
 
     inline static QtMessageHandler m_originalMessageHandler = nullptr;
 };

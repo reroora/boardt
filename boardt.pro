@@ -18,6 +18,8 @@ SOURCES += \
     src/board/board.cpp \
     src/board_emulator/boardemulatorwidget.cpp \
     src/board_widget/boardwidget.cpp \
+    src/communication/codec.cpp \
+    src/communication/command.cpp \
     src/config_reader/configreader.cpp \
     src/main.cpp \
     src/core/mainwindow.cpp \
@@ -27,6 +29,9 @@ HEADERS += \
     src/board/board.h \
     src/board_emulator/boardemulatorwidget.h \
     src/board_widget/boardwidget.h \
+    src/communication/BRDAPProtocol.h \
+    src/communication/codec.h \
+    src/communication/command.h \
     src/config_reader/configreader.h \
     src/core/mainwindow.h \
     src/logger/logger.h

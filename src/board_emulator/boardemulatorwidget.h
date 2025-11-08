@@ -4,6 +4,8 @@
 #include <QWidget>
 #include <QSerialPort>
 
+#include "communication/command.h"
+
 namespace Ui {
 class BoardEmulatorWidget;
 }
@@ -13,6 +15,8 @@ class BoardEmulatorWidget : public QWidget
     Q_OBJECT
 
 public:
+    friend class MainWindow;
+
     explicit BoardEmulatorWidget(QWidget *parent = nullptr);
     ~BoardEmulatorWidget();
 
@@ -24,9 +28,16 @@ public slots:
 
 
 private:
+    // void setMessageHandler(QtMessageHandler messageHandler);
+
+    void evaluateCommand(BRDAPV1::HandshakeVersionCommand& command);
+
     Ui::BoardEmulatorWidget *ui;
 
     QSerialPort m_serial;
+
+    unsigned int m_BRDAPVersion = 0;
+    QVarLengthArray<int, 1> m_SupportedBRDAPVersions = {1};
 };
 
 #endif // BOARDEMULATORWIDGET_H

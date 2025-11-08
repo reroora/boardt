@@ -32,7 +32,7 @@ QList<QString> ConfigReaderJson::getBoardNames(QString configPath)
         }
     }
 
-    qDebug() << "Loaded names:" << names;
+    qInfo() << "Loaded names:" << names;
     return names;
 }
 

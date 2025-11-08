@@ -11,12 +11,20 @@
 #include "config_reader/configreader.h"
 #include "logger/logger.h"
 #include "board_emulator/boardemulatorwidget.h"
+#include "communication/command.h"
+#include "communication/codec.h"
+#include "communication/BRDAPProtocol.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+    // modifies message handler (messages from qDebug, qInfo and etc) for custom logging
+    m_originalMessageHandler = qInstallMessageHandler(mainWindowMessageHandler);
+    auto& logger = Logger::getInstance();
+    logger.setTextEdit(this->ui->logTextEdit);
 
     QObject::connect(this->ui->refreshSetupPushButton, &QPushButton::pressed, this, &MainWindow::updateSetup);
     QObject::connect(this->ui->connectBoardPushButton, &QPushButton::pressed, this, &MainWindow::connectBoard);
@@ -45,17 +53,15 @@ MainWindow::MainWindow(QWidget *parent)
         }
     }
 
-    auto boardEmulatorIndex = this->ui->tabWidget->addTab(new BoardEmulatorWidget(), "Board emulator");
+    BoardEmulatorWidget* boardEmulatorPtr = new BoardEmulatorWidget();
+    auto boardEmulatorIndex = this->ui->tabWidget->addTab(boardEmulatorPtr, "Board emulator");
     tabBar->setTabButton(boardEmulatorIndex, QTabBar::RightSide, nullptr);
 
     // if I run tool from Qt Creator, current dir is ..../boardt/build/mingw_qt_5_12_8-Debug
     m_configPath = ".\\debug\\boards.json";
     // m_configPath = "boards.json";
-\
-    // modifies message handler (messages from qDebug, qInfo and etc) for custom logging
-    m_originalMessageHandler = qInstallMessageHandler(mainWindowMessageHandler);
-    auto& logger = Logger::getInstance();
-    logger.setTextEdit(this->ui->logTextEdit);
+
+    this->supportedBRDAPVersions.push_back(1);
 
     updateSetup();
 }
@@ -115,7 +121,7 @@ void MainWindow::connectBoard()
 {
     QString boardName = ui->boardSelectComboBox->currentText();
 
-    // if exist tab maybe try to reconnect and etc
+    // if tab exist, maybe try to reconnect and etc
     if(m_Boards.contains(boardName)) {
         return;
     }
@@ -148,13 +154,12 @@ void MainWindow::connectBoard()
     qInfo() << "Connected new board:" << boardName;
 }
 
-void MainWindow::sendData(QString tabName) {
-    qInfo() << "sendDataSignal from " << tabName;
-    // auto boardWidget = ui->tabWidget->tab
+void MainWindow::sendData(QString boardName) {
+    qInfo() << "sendDataSignal from " << boardName;
 
     QPointer<BoardWidget> widget;
     for (int i = 0; i < ui->tabWidget->count(); ++i) {
-        if (ui->tabWidget->tabText(i) == tabName) {
+        if (ui->tabWidget->tabText(i) == boardName) {
             widget = qobject_cast<BoardWidget*>(ui->tabWidget->widget(i));
             break;
         }
@@ -162,8 +167,7 @@ void MainWindow::sendData(QString tabName) {
 
     QString text = widget->getregisterDataTextEdit()->toPlainText();
 
-    auto communicator = m_communicators[tabName];
-
+    auto communicator = m_communicators[boardName];
     communicator->write(text.toUtf8());
 }
 
@@ -180,6 +184,45 @@ void MainWindow::readData() {
                         break;
                     }
                 }
+
+                switch(m_communicator_protocol_versions[port->portName()]) {
+                    case 1:
+                        {
+                            BRDAPCodec codec;
+                            QPointer<BRDAPV1::CommandV1> v1Command = qobject_cast<BRDAPV1::CommandV1*>(codec.decode(data));
+                            if(v1Command != nullptr) {
+                                switch (v1Command->type()) {
+                                case BRDAPV1::CommandType::HandShakeVersionCommandType:
+                                    evaluateCommand((BRDAPV1::HandshakeVersionCommand &) *v1Command, boardName);
+                                    break;
+
+                                default:
+                                    qInfo() << "Cannot perform command of version" << 1;
+                                }
+                            }
+                        }
+                        break;
+
+                    default:
+                        qInfo() << "Unspecified protocol version, trying to use the supported version";
+                        {
+                            BRDAPCodec codec;
+                            QPointer<BRDAPV1::CommandV1> v1Command = qobject_cast<BRDAPV1::CommandV1*>(codec.decode(data));
+                            if(v1Command != nullptr) {
+                                switch (v1Command->type()) {
+                                case BRDAPV1::CommandType::HandShakeVersionCommandType:
+                                    evaluateCommand((BRDAPV1::HandshakeVersionCommand &) *v1Command, boardName);
+                                    break;
+
+                                default:
+                                    qInfo() << "Cannot perform command of version" << 1;
+                                }
+                            }
+                        }
+
+                        break;
+                }
+
                 widget->getregisterDataTextEdit()->setPlainText(data);
             }
             else {
@@ -192,20 +235,6 @@ void MainWindow::readData() {
 void MainWindow::handlePortError(QSerialPort::SerialPortError error) {
 
 }
-
-// void BoardEmulatorWidget::readData() {
-//     const QByteArray data = m_serial->readAll();
-//     ui->outputValueTextEdit->insertPlainText(data);
-// }
-
-// void BoardEmulatorWidget::handleError() {
-//     // TODO: add possibility to reopen port
-//     if (error == QSerialPort::ResourceError) {
-//         qInfo() << "Board emulator port" << m_serial->errorString() <<  "error:" << m_serial.portName();
-//         if (m_serial->isOpen())
-//             m_serial->close();
-//     }
-// }
 
 bool MainWindow::connectToCommunicator(QString boardName) {
     auto connectionType = ui->connectionTypeComboBox->currentText();
@@ -229,8 +258,18 @@ bool MainWindow::connectToCommunicator(QString boardName) {
                     << "(flow control:" << serial->flowControl() << ")";
 
             this->m_communicators[boardName] = QPointer(serial);
+            this->m_communicator_protocol_versions[serialName] = 0;
             QObject::connect(serial, &QSerialPort::errorOccurred, this, &MainWindow::handlePortError);
             QObject::connect(serial, &QSerialPort::readyRead, this, &MainWindow::readData);
+
+            QPointer<BRDAPV1::HandshakeVersionCommand> request = new BRDAPV1::HandshakeVersionCommand();
+            request->m_handshakeNumber = BRDAPV1::HandshakeCommandConstants::HandshakeCommandNumber::HandshakeStart;
+            request->m_mode = BRDAPV1::HandshakeCommandConstants::HandshakeCommandMode::Single;
+            request->m_versions.push_back(1);
+            BRDAPCodec codec;
+            QPointer<Command> com = qobject_cast<Command*>(request);
+            serial->write(codec.encode(com));
+
             return true;
         } else {
             qInfo() << "Cannot open port" << serialName;
@@ -274,6 +313,71 @@ void MainWindow::updateComNames() {
 
     for (const QSerialPortInfo &info : infos) {
         ui->comPortNameComboBox->addItem(info.portName());
+    }
+}
+
+void MainWindow::evaluateCommand(BRDAPV1::HandshakeVersionCommand &command, QString boardName) {
+    using namespace BRDAPV1;
+
+    auto findSuitableVersion = [=, this, &command] () -> unsigned int {
+        if (command.m_mode == HandshakeCommandConstants::HandshakeCommandMode::Single) {
+            for (int i = 0; i < supportedBRDAPVersions.size(); ++i) {
+                if(supportedBRDAPVersions[i] == command.m_versions[0])
+                    return supportedBRDAPVersions[i];
+                    break;
+            }
+        }
+        else {
+            qInfo() << "Other mods are not supported yet, version 1 has been returned as a stub.";
+            return 1;
+        }
+    };
+
+    switch (command.m_handshakeNumber) {
+        case HandshakeCommandConstants::HandshakeCommandNumber::HandshakeStart:
+        {
+            QPointer<BRDAPV1::HandshakeVersionCommand> response  = new BRDAPV1::HandshakeVersionCommand();
+            response->m_handshakeNumber = HandshakeCommandConstants::HandshakeCommandNumber::HandshakeResponse;
+            response->m_mode = HandshakeCommandConstants::HandshakeCommandMode::Single;
+            response->m_versions.push_back(findSuitableVersion());
+            BRDAPCodec codec;
+            QPointer<Command> com = qobject_cast<Command*>(response);
+            this->m_communicators[boardName]->write(codec.encode(com));
+        }
+        break;
+
+        case HandshakeCommandConstants::HandshakeCommandNumber::HandshakeResponse:
+        {
+            if(command.m_mode == HandshakeCommandConstants::HandshakeCommandMode::Single) {
+                QPointer<BRDAPV1::HandshakeVersionCommand> response = new BRDAPV1::HandshakeVersionCommand();
+                response->m_handshakeNumber = HandshakeCommandConstants::HandshakeCommandNumber::HandshakeAccept;
+                response->m_mode = HandshakeCommandConstants::HandshakeCommandMode::Single;
+                unsigned int version = findSuitableVersion();
+                response->m_versions.push_back(version);
+                BRDAPCodec codec;
+                QPointer<Command> com = qobject_cast<Command*>(response);
+                this->m_communicators[boardName]->write(codec.encode(com));
+                this->m_communicator_protocol_versions[boardName] = version;
+                qInfo() << "Handshake accept sended with version installed to " << this->m_communicator_protocol_versions[boardName];
+            }
+            else {
+                // probably response may be not in a single mode, but this question is about protocol design
+                qInfo() << "The accepted HandshakeVersionCommand response is not in single mode";
+            }
+            break;
+        }
+
+        case HandshakeCommandConstants::HandshakeCommandNumber::HandshakeAccept:
+            if(command.m_mode != HandshakeCommandConstants::HandshakeCommandMode::Single) {
+                qInfo() << "Handshake accept command not in a single mode, picked first version from version array";
+            }
+            this->m_communicator_protocol_versions[boardName] = command.m_versions[0];
+            qInfo() << "Handshake proceed successfully, version installed to " << this->m_communicator_protocol_versions[boardName];
+            break;
+
+        default:
+            qInfo() << "Not specified handshake number";
+            break;
     }
 }
 
