@@ -28,9 +28,9 @@ public slots:
 
 
 private:
-    // void setMessageHandler(QtMessageHandler messageHandler);
-
     void evaluateCommand(BRDAPV1::HandshakeVersionCommand& command);
+    void evaluateCommand(BRDAPV1::SetRegisterCommand& command);
+    void evaluateCommand(BRDAPV1::GetRegisterCommand& command);
 
     Ui::BoardEmulatorWidget *ui;
 
@@ -38,6 +38,8 @@ private:
 
     unsigned int m_BRDAPVersion = 0;
     QVarLengthArray<int, 1> m_SupportedBRDAPVersions = {1};
+
+    QHash<unsigned long long, unsigned long long> m_registers;
 };
 
 #endif // BOARDEMULATORWIDGET_H

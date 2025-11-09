@@ -3,11 +3,11 @@
         {
             "BoardName": "MAX77958",
             "RegisterNameAddressPairs": [
-                    {"DEVICE_ID": "0x00"},
-                    {"DEVICE_REV": "0x01"},
-                    {"FW_REV": "0x02"},
-                    {"FW_SUB_VER": "0x03"},
-                    {"UIC_INT": "0x04"}
+                    {"DEVICE_ID": "0"},
+                    {"DEVICE_REV": "1"},
+                    {"FW_REV": "2"},
+                    {"FW_SUB_VER": "3"},
+                    {"UIC_INT": "4"}
             ],
             "RegisterAccessType" : [
                 {"DEVICE_ID": "RO"},
@@ -28,8 +28,8 @@
         {
             "BoardName": "TEST",
             "RegisterNameAddressPairs": [
-                    {"inp": "0x00"},
-                    {"outp": "0x01"}
+                    {"inp": "0"},
+                    {"outp": "1"}
             ]
         }
     ]

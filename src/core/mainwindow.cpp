@@ -138,25 +138,20 @@ void MainWindow::connectBoard()
     ConfigReaderJson reader;
     Board::RegisterMap registerMap = reader.getBoardRegisterMapbyName(m_configPath, boardName);
 
-    // BoardWidget* ptr = qobject_cast<BoardWidget*>(ui->tabWidget->widget(index));
     QPointer<QComboBox> comboBoxPtr = ptr->getRegisterComboBox();
     comboBoxPtr->addItems(registerMap.keys());
 
     QObject::connect(ptr, &BoardWidget::sendDataSignal, this, &MainWindow::sendData);
+    QObject::connect(ptr, &BoardWidget::refreshDataSignal, this, &MainWindow::refreshData);
 
     Board::BoardPointer boardPtr = new Board();
     boardPtr->setRegisterMap(registerMap);
     m_Boards[boardName] = boardPtr;
-    // auto name = ptr->objectName();
-
-
 
     qInfo() << "Connected new board:" << boardName;
 }
 
-void MainWindow::sendData(QString boardName) {
-    qInfo() << "sendDataSignal from " << boardName;
-
+void MainWindow::refreshData(QString boardName) {
     QPointer<BoardWidget> widget;
     for (int i = 0; i < ui->tabWidget->count(); ++i) {
         if (ui->tabWidget->tabText(i) == boardName) {
@@ -165,10 +160,47 @@ void MainWindow::sendData(QString boardName) {
         }
     }
 
-    QString text = widget->getregisterDataTextEdit()->toPlainText();
+    QPointer<BRDAPV1::GetRegisterCommand> response = new BRDAPV1::GetRegisterCommand();
+    response->m_mode = BRDAPV1::GetRegisterCommandConstants::GetRegisterCommandMode::Single;
+    response->m_offsetSizes.push_back(3);
+    auto registerMap = m_Boards[boardName]->getRegisterMap();
+    auto registerName = widget->getRegisterComboBox()->currentText();
+    unsigned long long offset = 0;
+    if(registerMap.contains(registerName)) {
+        offset = registerMap[registerName].toULongLong(0, 16);
+    }
+    response->m_registerOffsets.push_back(offset);
+    BRDAPCodec codec;
+    QPointer<Command> com = qobject_cast<Command*>(response);
+    this->m_communicators[boardName]->write(codec.encode(com));
+}
 
-    auto communicator = m_communicators[boardName];
-    communicator->write(text.toUtf8());
+void MainWindow::sendData(QString boardName) {
+    QPointer<BoardWidget> widget;
+    for (int i = 0; i < ui->tabWidget->count(); ++i) {
+        if (ui->tabWidget->tabText(i) == boardName) {
+            widget = qobject_cast<BoardWidget*>(ui->tabWidget->widget(i));
+            break;
+        }
+    }
+
+    // sends single mode command (since other modes are not supported)
+    QPointer<BRDAPV1::SetRegisterCommand> response = new BRDAPV1::SetRegisterCommand();
+    response->m_mode = BRDAPV1::SetRegisterCommandConstants::SetRegisterCommandMode::Single;
+    response->m_registerSizes.push_back(4);
+    response->m_offsetSizes.push_back(3);
+    auto registerMap = m_Boards[boardName]->getRegisterMap();
+    auto registerName = widget->getRegisterComboBox()->currentText();
+    unsigned long long offset = registerMap[registerName].toULongLong();
+    response->m_registerOffsets.push_back(offset);
+    unsigned long long value = widget->getregisterDataTextEdit()->toPlainText().toULongLong();
+    response->m_registerValues.push_back(value);
+    BRDAPCodec codec;
+    QPointer<Command> com = qobject_cast<Command*>(response);
+    this->m_communicators[boardName]->write(codec.encode(com));
+
+    qInfo() << "Register with offset" << offset << "is set to" << value;
+
 }
 
 void MainWindow::readData() {
@@ -185,7 +217,7 @@ void MainWindow::readData() {
                     }
                 }
 
-                switch(m_communicator_protocol_versions[port->portName()]) {
+                switch(m_communicator_protocol_versions[boardName]) {
                     case 1:
                         {
                             BRDAPCodec codec;
@@ -194,6 +226,14 @@ void MainWindow::readData() {
                                 switch (v1Command->type()) {
                                 case BRDAPV1::CommandType::HandShakeVersionCommandType:
                                     evaluateCommand((BRDAPV1::HandshakeVersionCommand &) *v1Command, boardName);
+                                    break;
+
+                                case BRDAPV1::CommandType::SetRegisterCommandType:
+                                    evaluateCommand((BRDAPV1::SetRegisterCommand &) *v1Command, boardName);
+                                    break;
+
+                                case BRDAPV1::CommandType::GetRegisterCommandType:
+                                    qInfo() << "Cannot perform GetRegisterCommand" << 1;
                                     break;
 
                                 default:
@@ -223,7 +263,6 @@ void MainWindow::readData() {
                         break;
                 }
 
-                widget->getregisterDataTextEdit()->setPlainText(data);
             }
             else {
                 qInfo() << "Cannot read data";
@@ -257,8 +296,10 @@ bool MainWindow::connectToCommunicator(QString boardName) {
                     << "(stop bits:" << serial->stopBits() << ")"
                     << "(flow control:" << serial->flowControl() << ")";
 
+            serial->readAll();
+
             this->m_communicators[boardName] = QPointer(serial);
-            this->m_communicator_protocol_versions[serialName] = 0;
+            this->m_communicator_protocol_versions[boardName] = 0;
             QObject::connect(serial, &QSerialPort::errorOccurred, this, &MainWindow::handlePortError);
             QObject::connect(serial, &QSerialPort::readyRead, this, &MainWindow::readData);
 
@@ -381,16 +422,46 @@ void MainWindow::evaluateCommand(BRDAPV1::HandshakeVersionCommand &command, QStr
     }
 }
 
-void MainWindow::closeTab(int index) {
-    auto tabName = ui->tabWidget->tabText(index);
-    qInfo() << "Disconnect from" << tabName;
-
-    if (m_communicators[tabName]->isOpen()) {
-        m_communicators[tabName]->close();
-        m_communicators.remove(tabName);
+void MainWindow::evaluateCommand(BRDAPV1::SetRegisterCommand &command, QString boardName) {
+    QPointer<BoardWidget> widget;
+    for (int i = 0; i < ui->tabWidget->count(); ++i) {
+        if (ui->tabWidget->tabText(i) == boardName) {
+            widget = qobject_cast<BoardWidget*>(ui->tabWidget->widget(i));
+            break;
+        }
     }
 
-    m_Boards.remove(tabName);
-    ui->tabWidget->removeTab(index);
+    // logic only for single mode
+    auto currentRegisterName =  widget->getRegisterComboBox()->currentText();
+    QString receivedRegisterName;
+    auto registerMap = m_Boards[boardName]->getRegisterMap();
+    auto offset = QString::number(command.m_registerOffsets[0], 16);
+    if(registerMap.contains(registerMap.key(offset))) {
+        receivedRegisterName = registerMap.key(offset);
+    }
+    else {
+        qInfo() << "No register name for received offset from SetRegisterCommand";
+    }
 
+    if(receivedRegisterName == currentRegisterName) {
+        widget->getregisterDataTextEdit()->setPlainText(QString::number(command.m_registerValues[0]));
+    }
+}
+
+void MainWindow::evaluateCommand(BRDAPV1::GetRegisterCommand &command, QString boardName) {
+
+}
+
+void MainWindow::closeTab(int index) {
+    auto boardName = ui->tabWidget->tabText(index);
+    qInfo() << "Disconnect from" << boardName;
+
+    if (m_communicators[boardName]->isOpen()) {
+        m_communicators[boardName]->close();
+        m_communicators.remove(boardName);
+        m_communicator_protocol_versions.remove(boardName);
+    }
+
+    m_Boards.remove(boardName);
+    ui->tabWidget->removeTab(index);
 }

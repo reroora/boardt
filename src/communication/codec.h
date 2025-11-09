@@ -25,8 +25,12 @@ public:
 
 private:
     QByteArray encode(BRDAPV1::HandshakeVersionCommand& command);
+    QByteArray encode(BRDAPV1::SetRegisterCommand& command);
+    QByteArray encode(BRDAPV1::GetRegisterCommand& command);
 
-    void decode(BRDAPV1::HandshakeVersionCommand& command, QByteArray data);
+    bool decode(BRDAPV1::HandshakeVersionCommand& command, QByteArray data);
+    bool decode(BRDAPV1::SetRegisterCommand& command, QByteArray data);
+    bool decode(BRDAPV1::GetRegisterCommand& command, QByteArray data);
 
 };
 

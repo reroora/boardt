@@ -38,6 +38,7 @@ private slots:
 
     void connectBoard();
 
+    void refreshData(QString boardName);
     void sendData(QString boardName);
     void readData();
     void handlePortError(QSerialPort::SerialPortError error);
@@ -48,6 +49,8 @@ private:
     void updateComNames();
 
     void evaluateCommand(BRDAPV1::HandshakeVersionCommand& command, QString boardName);
+    void evaluateCommand(BRDAPV1::SetRegisterCommand& command, QString boardName);
+    void evaluateCommand(BRDAPV1::GetRegisterCommand& command, QString boardName);
 
     Ui::MainWindow *ui;
 

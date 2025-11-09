@@ -5,6 +5,7 @@
 #include <QSerialPortInfo>
 #include <QDebug>
 #include <QByteArray>
+#include <algorithm>
 
 #include "communication/command.h"
 #include "communication/BRDAPProtocol.h"
@@ -29,7 +30,12 @@ BoardEmulatorWidget::BoardEmulatorWidget(QWidget *parent)
     }
 
     auto serialName = ui->comboBox->currentText();
-    // connectToPort(serialName);
+
+    ui->outputTextEdit->clear();
+    for (unsigned long long i = 0; i < 5; ++i) {
+        m_registers[i] = 3 + i;
+        ui->outputTextEdit->append(QString::number(i, 16) + " : " + QString::number(m_registers[i], 10));
+    }
 }
 
 BoardEmulatorWidget::~BoardEmulatorWidget() {
@@ -39,8 +45,23 @@ BoardEmulatorWidget::~BoardEmulatorWidget() {
 }
 
 void BoardEmulatorWidget::writeData() {
-    QByteArray data = ui->inputValueTextEdit->toPlainText().toUtf8();
-    m_serial.write(data);
+    unsigned long long offset = ui->inputOffsetTextEdit->toPlainText().toULongLong();
+    unsigned long long value = ui->inputValueTextEdit->toPlainText().toULongLong();
+
+    if(m_registers.contains(offset)) {
+        m_registers[offset] = value;
+        qInfo() << "Register with offset" << offset << "is set to" << value << "inside the board emulator";
+    }
+    else {
+        qInfo() << "Board emulator wrong offset input";
+    }
+
+    ui->outputTextEdit->clear();
+    auto keys = m_registers.keys();
+    std::sort(keys.begin(), keys.end());
+    for (unsigned long long i = 0; i < keys.size(); ++i) {
+        ui->outputTextEdit->append(QString::number(keys[i], 16) + " : " + QString::number(m_registers[keys[i]], 10));
+    }
 }
 
 void BoardEmulatorWidget::readData() {
@@ -53,11 +74,18 @@ void BoardEmulatorWidget::readData() {
             evaluateCommand((BRDAPV1::HandshakeVersionCommand &) *v1Command);
             break;
 
+        case BRDAPV1::CommandType::SetRegisterCommandType:
+            evaluateCommand((BRDAPV1::SetRegisterCommand &) *v1Command);
+            break;
+
+        case BRDAPV1::CommandType::GetRegisterCommandType:
+            evaluateCommand((BRDAPV1::GetRegisterCommand &) *v1Command);
+            break;
+
         default:
             qInfo() << "Cannot perform command";
         }
     }
-    ui->outputValueTextEdit->setPlainText(data);
 }
 
 void BoardEmulatorWidget::handleError(QSerialPort::SerialPortError error) {
@@ -88,6 +116,8 @@ void BoardEmulatorWidget::connectToPort(const QString &text) {
                 << "(parity:" << m_serial.parity() << ")"
                 << "(stop bits:" << m_serial.stopBits() << ")"
                 << "(flow control:" << m_serial.flowControl() << ")";
+
+        m_serial.readAll();
 
     } else {
         qInfo() << "Cannot open port" << text;
@@ -142,3 +172,64 @@ void BoardEmulatorWidget::evaluateCommand(BRDAPV1::HandshakeVersionCommand &comm
             break;
     }
 }
+
+void BoardEmulatorWidget::evaluateCommand(BRDAPV1::SetRegisterCommand &command) {
+    for (int i = 0; i < command.m_registerOffsets.size(); ++i) {
+        auto offset = command.m_registerOffsets[i];
+        if(m_registers.contains(offset)) {
+            m_registers[offset] = command.m_registerValues[i];
+        }
+    }
+
+    ui->outputTextEdit->clear();
+    auto keys = m_registers.keys();
+    std::sort(keys.begin(), keys.end());
+    for (unsigned long long i = 0; i < keys.size(); ++i) {
+        ui->outputTextEdit->append(QString::number(keys[i], 16) + " : " + QString::number(m_registers[keys[i]], 10));
+    }
+
+    // sends single mode command (since other modes are not supported)
+    QPointer<BRDAPV1::SetRegisterCommand> response = new BRDAPV1::SetRegisterCommand();
+    response->m_mode = BRDAPV1::SetRegisterCommandConstants::SetRegisterCommandMode::Single;
+    response->m_registerSizes.push_back(4);
+    response->m_offsetSizes.push_back(3);
+    response->m_registerOffsets.push_back(command.m_registerOffsets[0]);
+    response->m_registerValues.push_back(command.m_registerValues[0]);
+    BRDAPCodec codec;
+    QPointer<Command> com = qobject_cast<Command*>(response);
+    m_serial.write(codec.encode(com));
+}
+
+void BoardEmulatorWidget::evaluateCommand(BRDAPV1::GetRegisterCommand &command) {
+
+    // also like in other methods, this send only one value yet
+    QPointer<BRDAPV1::SetRegisterCommand> response = new BRDAPV1::SetRegisterCommand();
+    response->m_mode = BRDAPV1::SetRegisterCommandConstants::SetRegisterCommandMode::Single;
+    response->m_registerSizes.push_back(4);
+    response->m_offsetSizes.push_back(3);
+    response->m_registerOffsets.push_back(command.m_registerOffsets[0]);
+    unsigned long long value;
+    if(m_registers.contains(command.m_registerOffsets[0])) {
+        value = m_registers[command.m_registerOffsets[0]];
+    }
+    response->m_registerValues.push_back(value);
+    BRDAPCodec codec;
+    QPointer<Command> com = qobject_cast<Command*>(response);
+    m_serial.write(codec.encode(com));
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

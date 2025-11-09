@@ -67,7 +67,7 @@ Board::RegisterMap ConfigReaderJson::getBoardRegisterMapbyName(QString configPat
 
     }
 
-    qDebug() << "Loaded registers:" << registerMap;
+    qInfo() << "Loaded registers:" << registerMap;
     return registerMap;
 }
 

@@ -7,6 +7,8 @@ BoardWidget::BoardWidget(QWidget *parent)
 {
     ui->setupUi(this);
     QObject::connect(ui->sendPushButton, &QPushButton::clicked, this, [this] { emit this->sendDataSignal(this->m_tabName);} );
+    QObject::connect(ui->refreshPushButton, &QPushButton::clicked, this, [this] { emit this->refreshDataSignal(this->m_tabName);} );
+    QObject::connect(ui->registerComboBox, &QComboBox::currentTextChanged, this, [this] (const QString &text) { emit this->refreshDataSignal(this->m_tabName);} );
 }
 
 BoardWidget::BoardWidget(QString tabName, QWidget *parent)

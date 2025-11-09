@@ -31,7 +31,8 @@ public:
     void setTabName(const QString &newTabName);
 
 signals:
-    void sendDataSignal(QString tabName);
+    void sendDataSignal(QString boardName);
+    void refreshDataSignal(QString boardName);
 
 private:
     Ui::BoardWidget *ui;
