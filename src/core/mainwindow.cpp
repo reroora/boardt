@@ -26,8 +26,24 @@ MainWindow::MainWindow(QWidget *parent)
     auto& logger = Logger::getInstance();
     logger.setTextEdit(this->ui->logTextEdit);
 
-    QObject::connect(this->ui->refreshSetupPushButton, &QPushButton::pressed, this, &MainWindow::updateSetup);
-    QObject::connect(this->ui->connectBoardPushButton, &QPushButton::pressed, this, &MainWindow::connectBoard);
+    QObject::connect(this->ui->refreshSetupPushButton, &QPushButton::clicked, this, &MainWindow::updateSetup);
+    QObject::connect(this->ui->connectBoardPushButton, &QPushButton::clicked, this, &MainWindow::connectBoard);
+    QObject::connect(this->ui->disconnectBoardPushButton, &QPushButton::clicked, this, &MainWindow::disconnectBoardCommunicator);
+
+    QObject::connect(this->ui->boardSelectComboBox, &QComboBox::currentTextChanged, this, [this] (const QString &text) {
+        if (this->m_communicators.contains(text))
+            this->ui->connectButtonsStackedWidget->setCurrentWidget(this->ui->disconnectButtonPage);
+        else
+            this->ui->connectButtonsStackedWidget->setCurrentWidget(this->ui->connectButtonPage);
+
+        if (m_communicators.contains(text)) {
+            QPointer<QSerialPort> serial =  qobject_cast<QSerialPort*>(m_communicators[text]);
+            this->ui->connectionInfoLabel->setText("Connected to " + serial->portName());
+        }
+        else {
+            ui->connectionInfoLabel->setText("Disconnected");
+        }
+    });
 
     QObject::connect(this->ui->tabWidget, &QTabWidget::tabCloseRequested, this, &MainWindow::closeTab);
 
@@ -66,13 +82,11 @@ MainWindow::MainWindow(QWidget *parent)
     updateSetup();
 }
 
-MainWindow::~MainWindow()
-{
+MainWindow::~MainWindow() {
     delete ui;
 }
 
-void MainWindow::mainWindowMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
-{
+void MainWindow::mainWindowMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg) {
     QString txt;
     switch (type) {
     case QtDebugMsg:
@@ -104,51 +118,87 @@ void MainWindow::mainWindowMessageHandler(QtMsgType type, const QMessageLogConte
     logger.log(txt);
 }
 
-void MainWindow::updateBoardList(const QString configPath)
-{
+void MainWindow::updateBoardList(const QString configPath) {
     ConfigReaderJson reader;
     QList<QString> names = reader.getBoardNames(configPath);
     this->ui->boardSelectComboBox->addItems(names);
 }
 
-void MainWindow::updateSetup()
-{
+void MainWindow::updateSetup() {
     updateBoardList(this->m_configPath);
     setupComSettings();
 }
 
-void MainWindow::connectBoard()
-{
+void MainWindow::connectBoard() {
     QString boardName = ui->boardSelectComboBox->currentText();
 
     // if tab exist, maybe try to reconnect and etc
     if(m_Boards.contains(boardName)) {
-        return;
+        if(!connectToCommunicator(boardName)) {
+            return;
+        }
+
+        int tabIndex = this->ui->tabWidget->count();
+        for (int i = 0; i < ui->tabWidget->count(); ++i) {
+            if (ui->tabWidget->tabText(i) == boardName) {
+                tabIndex = i;
+                break;
+            }
+        }
+        this->ui->tabWidget->setTabEnabled(tabIndex, true);
+    }
+    else {
+        if(!connectToCommunicator(boardName)) {
+            return;
+        }
+
+        BoardWidget* ptr = new BoardWidget();
+
+        auto index = this->ui->tabWidget->addTab(ptr, boardName);
+        ptr->setTabName(boardName);
+
+        ConfigReaderJson reader;
+        Board::RegisterMap registerMap = reader.getBoardRegisterMapbyName(m_configPath, boardName);
+
+        QPointer<QComboBox> comboBoxPtr = ptr->getRegisterComboBox();
+        comboBoxPtr->addItems(registerMap.keys());
+
+        QObject::connect(ptr, &BoardWidget::sendDataSignal, this, &MainWindow::sendData);
+        QObject::connect(ptr, &BoardWidget::refreshDataSignal, this, &MainWindow::refreshData);
+
+        Board::BoardPointer boardPtr = new Board();
+        boardPtr->setRegisterMap(registerMap);
+        m_Boards[boardName] = boardPtr;
     }
 
-    if(!connectToCommunicator(boardName)) {
-        return;
+    this->ui->connectButtonsStackedWidget->setCurrentWidget(this->ui->disconnectButtonPage);
+}
+
+void MainWindow::disconnectBoardCommunicator() {
+    QString boardName = ui->boardSelectComboBox->currentText();
+
+    if (m_communicators[boardName]->isOpen()) {
+        // while there is no abstraction over communicator, I need to hardcode the cast to serial and take the name like this
+        QPointer<QSerialPort> serial =  qobject_cast<QSerialPort*>(m_communicators[boardName]);
+        qInfo() << "Board" << boardName << "is disconnected from" << serial->portName();
+
+        m_communicators[boardName]->close();
+        m_communicators.remove(boardName);
+        m_communicator_protocol_versions.remove(boardName);
     }
 
-    BoardWidget* ptr = new BoardWidget();
+    int tabIndex = this->ui->tabWidget->count();
+    for (int i = 0; i < ui->tabWidget->count(); ++i) {
+        if (ui->tabWidget->tabText(i) == boardName) {
+            tabIndex = i;
+            break;
+        }
+    }
+    this->ui->tabWidget->setTabEnabled(tabIndex, false);
 
-    auto index = this->ui->tabWidget->addTab(ptr, boardName);
-    ptr->setTabName(boardName);
+    this->ui->connectButtonsStackedWidget->setCurrentWidget(this->ui->connectButtonPage);
 
-    ConfigReaderJson reader;
-    Board::RegisterMap registerMap = reader.getBoardRegisterMapbyName(m_configPath, boardName);
-
-    QPointer<QComboBox> comboBoxPtr = ptr->getRegisterComboBox();
-    comboBoxPtr->addItems(registerMap.keys());
-
-    QObject::connect(ptr, &BoardWidget::sendDataSignal, this, &MainWindow::sendData);
-    QObject::connect(ptr, &BoardWidget::refreshDataSignal, this, &MainWindow::refreshData);
-
-    Board::BoardPointer boardPtr = new Board();
-    boardPtr->setRegisterMap(registerMap);
-    m_Boards[boardName] = boardPtr;
-
-    qInfo() << "Connected new board:" << boardName;
+    this->ui->connectionInfoLabel->setText("Disconnected");
 }
 
 void MainWindow::refreshData(QString boardName) {
@@ -191,6 +241,7 @@ void MainWindow::sendData(QString boardName) {
     response->m_offsetSizes.push_back(3);
     auto registerMap = m_Boards[boardName]->getRegisterMap();
     auto registerName = widget->getRegisterComboBox()->currentText();
+    //maybe use hex in config for readability
     unsigned long long offset = registerMap[registerName].toULongLong();
     response->m_registerOffsets.push_back(offset);
     unsigned long long value = widget->getregisterDataTextEdit()->toPlainText().toULongLong();
@@ -199,8 +250,7 @@ void MainWindow::sendData(QString boardName) {
     QPointer<Command> com = qobject_cast<Command*>(response);
     this->m_communicators[boardName]->write(codec.encode(com));
 
-    qInfo() << "Register with offset" << offset << "is set to" << value;
-
+    qInfo() << "Request to set value" << value << "to register with offset" << offset << "has been sent";
 }
 
 void MainWindow::readData() {
@@ -289,12 +339,14 @@ bool MainWindow::connectToCommunicator(QString boardName) {
         serial->setFlowControl(ui->comPortFlowControlComboBox->currentData().value<QSerialPort::FlowControl>());
 
         if (serial->open(QIODevice::ReadWrite)) {
-            qInfo() << "Board" << "connected to" << serialName << "with settings:"
+            qInfo() << "Board" << boardName << "connected to" << serialName << "with settings:"
                     << "(baud rate:" << serial->baudRate() << ")"
                     << "(data bits:" << serial->dataBits() << ")"
                     << "(parity:" << serial->parity() << ")"
                     << "(stop bits:" << serial->stopBits() << ")"
                     << "(flow control:" << serial->flowControl() << ")";
+
+            this->ui->connectionInfoLabel->setText("Connected to " + serialName);
 
             serial->readAll();
 
@@ -456,10 +508,24 @@ void MainWindow::closeTab(int index) {
     auto boardName = ui->tabWidget->tabText(index);
     qInfo() << "Disconnect from" << boardName;
 
-    if (m_communicators[boardName]->isOpen()) {
-        m_communicators[boardName]->close();
-        m_communicators.remove(boardName);
-        m_communicator_protocol_versions.remove(boardName);
+    if (m_communicators.contains(boardName)) {
+        if (m_communicators[boardName]->isOpen()) {
+            m_communicators[boardName]->close();
+            m_communicators.remove(boardName);
+            m_communicator_protocol_versions.remove(boardName);
+        }
+    }
+
+    int selectedBoardIndex = this->ui->tabWidget->count();
+    for (int i = 0; i < ui->tabWidget->count(); ++i) {
+        if (ui->tabWidget->tabText(i) == ui->boardSelectComboBox->currentText()) {
+            selectedBoardIndex = i;
+            break;
+        }
+    }
+    if(index == selectedBoardIndex) {
+        this->ui->connectButtonsStackedWidget->setCurrentWidget(this->ui->connectButtonPage);
+        this->ui->connectionInfoLabel->setText("Disconnected");
     }
 
     m_Boards.remove(boardName);

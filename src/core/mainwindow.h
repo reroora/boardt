@@ -37,6 +37,7 @@ private slots:
     void closeTab(int index);
 
     void connectBoard();
+    void disconnectBoardCommunicator();
 
     void refreshData(QString boardName);
     void sendData(QString boardName);

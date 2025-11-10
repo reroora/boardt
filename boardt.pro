@@ -38,8 +38,10 @@ HEADERS += \
 
 FORMS += \
     form/mainwindow.ui \
-    src/board_emulator/boardemulatorwidget.ui \
-    src/board_widget/boardwidget.ui
+    # src/board_emulator/boardemulatorwidget.ui \
+    # src/board_widget/boardwidget.ui
+    form/boardemulatorwidget.ui \
+    form/boardwidget.ui
 
 INCLUDEPATH += ./src
 
