@@ -1,5 +1,7 @@
 # boardt
 
+[![ru](https://img.shields.io/badge/lang-ru-yellow.svg)](./README-ru.md)
+
 Boardt (board register debugging tool) is a software for checking and changing 
 states of board registers.
 
@@ -18,6 +20,56 @@ This tool provides the following functionality:
 
 Build using mingw-w64 14.2.0-3 and Qt 5.12.8 with qmake in Qt Creator.
 
+## Board configuration file
+
+The board parameters are set in a json file (so far, hardcoded in "boards.json").
+
+An example of the configuration is shown below.
+
+``` json
+{
+    "Boards": [
+        {
+            "BoardName": "MAX77958",
+            "RegisterNameAddressPairs": [
+                    {"DEVICE_ID": "0"},
+                    {"DEVICE_REV": "1"},
+                    {"FW_REV": "2"},
+                    {"FW_SUB_VER": "3"},
+                    {"UIC_INT": "4"}
+            ],
+            "RegisterAccessType" : [
+                {"DEVICE_ID": "RO"},
+                {"DEVICE_REV": "RO"},
+                {"FW_REV": "RO"},
+                {"FW_SUB_VER": "RO"},
+                {"UIC_INT": [
+                        {"AttachedHoldI" : "RCA"},
+                        {"ChgTypI" : "RCA"},
+                        {"StopModeI" : "RCA"},
+                        {"DCDTmoI" : "RCA"},
+                        {"VbADCI" : "RCA"},
+                        {"VBUSDetI" : "RCA"},
+                        {"SYSMsgI" : "RCA"},
+                        {"APCmdResI" : "RCA"} ] }
+            ]
+        },
+        {
+            "BoardName": "TEST",
+            "RegisterNameAddressPairs": [
+                    {"inp": "0"},
+                    {"outp": "1"}
+            ]
+        }
+    ]
+}
+```
+
+The json object contains an array named "Boards". The element of the array must contains "BoardName" and "RegisterNameAddressPairs" keys.
+The "BoardName" key contains name of the board that the tool is interacts with. 
+The "RegisterNameAddressPairs" key contains an array of "register name":"register offset" pairs.
+Also the board element can contain other keys with that can be used by the programmer (for example, the key "RegisterAccessType", which has not yet been implemented).
+
 ## Protocol
 
 This is a prototype of protocol for communication between the board and the debugging tool.
@@ -28,7 +80,6 @@ suggestion of versions from both sides.
 After version installing, both sides can send commands and be sure that commands will be interpreted correctly.
 
 At this moment protocol provide some set of commands.
-
 Each command starts from command code. The command codes are shown in the table below.
 
 | Command            | Code | 
@@ -51,10 +102,11 @@ This command used for version installation at the beginning of communication.
 (0b00 - HandshakeStart, 0b01 - HandshakeResponse, 0b10 - HandshakeAccept)
 
 **Mode** - this field indicates how the following data should be interpreted.
-Value **Single** (0b0) idicates that sended only one version (version must be set to field size/version),
-value **Vector** (0b1) indicates that next data must be interpred like array, set 
-array size in field size/version and set array like in table above. Value **Range** (0b10) indicate 
-that next data is array of ranges with begin-end pairs, this pairs stores in one byte (begin/end = version1/version2 from table above).
+Value **Single** (0b0) idicates that sended only one version (version must be set to field size/version).
+Value **Vector** (0b1) indicates that next data must be interpred like array, set 
+array size in field size/version and set array like in table above. 
+Value **Range** (0b10) indicate that next data is array of ranges with 
+begin-end pairs, this pairs stores in one byte (begin/end = version1/version2 from table above).
 
 **Size/version** - depending on the mode, it may be the size or version.
 
@@ -73,8 +125,8 @@ analog field with same name in **HandshakeCommand**. Only **single** mode suppor
 
 **Sizes** - sizes for next fields: 
 
-- **offset size** - size of **register offset** field (2 bit) coding sizes 8, 16, 32, 64; in one word 2^(3 + value) bits.
-- **register size** - size of **register value** field (3 bit) coding sizes 4, 8, 16, 32, 64, 128, 256, 512; in one word 2^(2 + value) bits.
+- **offset size** - size of **register offset** field (2 bit) coding sizes 8, 16, 32, 64; 2^(3 + value) bits.
+- **register size** - size of **register value** field (3 bit) coding sizes 4, 8, 16, 32, 64, 128, 256, 512; 2^(2 + value) bits.
 
 **Register Offset** - offset of a register. Field lenghth depends of **offset size** field. 
 
