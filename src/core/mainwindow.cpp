@@ -121,6 +121,7 @@ void MainWindow::mainWindowMessageHandler(QtMsgType type, const QMessageLogConte
 void MainWindow::updateBoardList(const QString configPath) {
     ConfigReaderJson reader;
     QList<QString> names = reader.getBoardNames(configPath);
+    this->ui->boardSelectComboBox->clear();
     this->ui->boardSelectComboBox->addItems(names);
 }
 
@@ -131,6 +132,11 @@ void MainWindow::updateSetup() {
 
 void MainWindow::connectBoard() {
     QString boardName = ui->boardSelectComboBox->currentText();
+
+    if(boardName == "") {
+        qInfo() << "Cannot specify board";
+        return;
+    }
 
     // if tab exist, maybe try to reconnect and etc
     if(m_Boards.contains(boardName)) {
@@ -158,9 +164,11 @@ void MainWindow::connectBoard() {
         ptr->setTabName(boardName);
 
         ConfigReaderJson reader;
+        // what should I do if the register map is empty?
         Board::RegisterMap registerMap = reader.getBoardRegisterMapbyName(m_configPath, boardName);
 
         QPointer<QComboBox> comboBoxPtr = ptr->getRegisterComboBox();
+        comboBoxPtr->clear();
         comboBoxPtr->addItems(registerMap.keys());
 
         QObject::connect(ptr, &BoardWidget::sendDataSignal, this, &MainWindow::sendData);
@@ -218,11 +226,14 @@ void MainWindow::refreshData(QString boardName) {
     unsigned long long offset = 0;
     if(registerMap.contains(registerName)) {
         offset = registerMap[registerName].toULongLong(0, 16);
+        response->m_registerOffsets.push_back(offset);
+        BRDAPCodec codec;
+        QPointer<Command> com = qobject_cast<Command*>(response);
+        this->m_communicators[boardName]->write(codec.encode(com));
     }
-    response->m_registerOffsets.push_back(offset);
-    BRDAPCodec codec;
-    QPointer<Command> com = qobject_cast<Command*>(response);
-    this->m_communicators[boardName]->write(codec.encode(com));
+    else {
+        qInfo() << "Cannot specify offset by register name" << registerName;
+    }
 }
 
 void MainWindow::sendData(QString boardName) {
@@ -375,11 +386,13 @@ bool MainWindow::connectToCommunicator(QString boardName) {
 void MainWindow::setupComSettings() {
     updateComNames();
 
+    ui->comPortBaudRateComboBox->clear();
     ui->comPortBaudRateComboBox->addItem(QStringLiteral("9600"), QSerialPort::Baud9600);
     ui->comPortBaudRateComboBox->addItem(QStringLiteral("19200"), QSerialPort::Baud19200);
     ui->comPortBaudRateComboBox->addItem(QStringLiteral("38400"), QSerialPort::Baud38400);
     ui->comPortBaudRateComboBox->addItem(QStringLiteral("115200"), QSerialPort::Baud115200);
 
+    ui->comPortDataBitsComboBox->clear();
     ui->comPortDataBitsComboBox->addItem(QStringLiteral("5"), QSerialPort::Data5);
     ui->comPortDataBitsComboBox->addItem(QStringLiteral("6"), QSerialPort::Data6);
     ui->comPortDataBitsComboBox->addItem(QStringLiteral("7"), QSerialPort::Data7);
@@ -387,15 +400,18 @@ void MainWindow::setupComSettings() {
     ui->comPortDataBitsComboBox->setCurrentIndex(3);
 
 
+    ui->comPortParityComboBox->clear();
     ui->comPortParityComboBox->addItem(tr("None"), QSerialPort::NoParity);
     ui->comPortParityComboBox->addItem(tr("Even"), QSerialPort::EvenParity);
     ui->comPortParityComboBox->addItem(tr("Odd"), QSerialPort::OddParity);
     ui->comPortParityComboBox->addItem(tr("Mark"), QSerialPort::MarkParity);
     ui->comPortParityComboBox->addItem(tr("Space"), QSerialPort::SpaceParity);
 
+    ui->comPortStopBitsComboBox->clear();
     ui->comPortStopBitsComboBox->addItem(QStringLiteral("1"), QSerialPort::OneStop);
     ui->comPortStopBitsComboBox->addItem(QStringLiteral("2"), QSerialPort::TwoStop);
 
+    ui->comPortFlowControlComboBox->clear();
     ui->comPortFlowControlComboBox->addItem(tr("None"), QSerialPort::NoFlowControl);
     ui->comPortFlowControlComboBox->addItem(tr("RTS/CTS"), QSerialPort::HardwareControl);
     ui->comPortFlowControlComboBox->addItem(tr("XON/XOFF"), QSerialPort::SoftwareControl);
@@ -404,6 +420,7 @@ void MainWindow::setupComSettings() {
 void MainWindow::updateComNames() {
     const auto infos = QSerialPortInfo::availablePorts();
 
+    ui->comPortNameComboBox->clear();
     for (const QSerialPortInfo &info : infos) {
         ui->comPortNameComboBox->addItem(info.portName());
     }

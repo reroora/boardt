@@ -54,6 +54,11 @@ Board::RegisterMap ConfigReaderJson::getBoardRegisterMapbyName(QString configPat
             }
         }
 
+        if (obj["BoardName"].toString() != boardName) {
+            qInfo() << "Cannot find board" << boardName << "return empty register map";
+            return registerMap;
+        }
+
         if (obj.contains("RegisterNameAddressPairs") && obj["RegisterNameAddressPairs"].isArray()) {
             auto mapArray = obj["RegisterNameAddressPairs"].toArray();
             for (int i = 0; i < mapArray.size(); ++i) {
